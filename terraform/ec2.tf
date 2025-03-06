@@ -1,4 +1,9 @@
 # ec2.tf
+resource "aws_key_pair" "my_jenkins_key" {
+  key_name   = "jenkins-key"
+  public_key = var.jenkins_public_key
+}
+
 resource "aws_instance" "linux_docker" {
   ami                   = "ami-08c40ec9ead489470"   # Make sure this is valid for your region
   instance_type         = "t2.micro"
