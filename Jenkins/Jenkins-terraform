@@ -27,10 +27,9 @@ pipeline {
         }
         stage('Plan') {
             steps {
-                // Bind the public key credential and pass it to Terraform
                 withCredentials([string(credentialsId: 'jenkins-public-key', variable: 'PUBLIC_KEY')]) {
                     dir('terraform') {
-                        sh 'terraform plan -var="jenkins_public_key=${PUBLIC_KEY}" -out tfplan'
+                        sh 'terraform plan -var="jenkins_public_key=$PUBLIC_KEY" -out tfplan'
                         sh 'terraform show -no-color tfplan > tfplan.txt'
                     }
                 }
@@ -39,7 +38,6 @@ pipeline {
         stage('Apply / Destroy') {
             steps {
                 script {
-                    // Bind the credential again during apply/destroy
                     withCredentials([string(credentialsId: 'jenkins-public-key', variable: 'PUBLIC_KEY')]) {
                         dir('terraform') {
                             if (params.action == 'apply') {
@@ -48,9 +46,9 @@ pipeline {
                                     input message: "Do you want to apply the plan?",
                                           parameters: [text(name: 'Plan', description: 'Please review the plan', defaultValue: plan)]
                                 }
-                                sh "terraform apply -var=\"jenkins_public_key=${PUBLIC_KEY}\" -input=false tfplan"
+                                sh 'terraform apply -var="jenkins_public_key=$PUBLIC_KEY" -input=false tfplan'
                             } else if (params.action == 'destroy') {
-                                sh "terraform destroy -var=\"jenkins_public_key=${PUBLIC_KEY}\" --auto-approve"
+                                sh 'terraform destroy -var="jenkins_public_key=$PUBLIC_KEY" --auto-approve'
                             } else {
                                 error "Invalid action selected. Please choose either 'apply' or 'destroy'."
                             }
