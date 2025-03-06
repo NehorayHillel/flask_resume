@@ -27,12 +27,20 @@ pipeline {
         }
         stage('Plan') {
             steps {
+                // Bind the public key credential and pass it to Terraform
                 withCredentials([string(credentialsId: 'jenkins-public-key', variable: 'PUBLIC_KEY')]) {
                     dir('terraform') {
                         sh 'terraform plan -var="jenkins_public_key=$PUBLIC_KEY" -out tfplan'
                         sh 'terraform show -no-color tfplan > tfplan.txt'
                     }
                 }
+            }
+        }
+        stage('Pre-cleanup') {
+            steps {
+                // Delete the key pair if it already exists so Terraform can create it
+                // This requires AWS CLI to be available in your Jenkins environment.
+                sh 'aws ec2 delete-key-pair --key-name jenkins-key || true'
             }
         }
         stage('Apply / Destroy') {
