@@ -4,13 +4,11 @@ resource "aws_key_pair" "jenkins_key" {
 }
 
 resource "aws_instance" "linux_docker" {
-  ami                   = "ami-08c40ec9ead489470"   # Ensure this AMI is valid in your region
+  ami                   = "ami-08c40ec9ead489470"
   instance_type         = "t2.micro"
   key_name              = aws_key_pair.jenkins_key.key_name
 
-  vpc_security_group_ids = [
-    aws_security_group.instance_sg.id
-  ]
+  vpc_security_group_ids = [aws_security_group.instance_sg.id]
 
   user_data = <<-EOF
     #!/bin/bash
@@ -22,6 +20,6 @@ resource "aws_instance" "linux_docker" {
   EOF
 
   tags = {
-    Name = "LinuxDockerInstance"
+    Name = "LinuxDockerInstance1"
   }
 }
