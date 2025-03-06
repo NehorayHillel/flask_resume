@@ -20,10 +20,9 @@ pipeline {
         }
         stage('Pre-cleanup') {
             steps {
-                // Run the deletion command in a Docker container with AWS CLI installed.
                 script {
-                    docker.image('amazon/aws-cli').inside {
-                        // The "|| true" ensures the command succeeds even if the key doesn't exist.
+                    // Run the AWS CLI inside a container with the entrypoint overridden.
+                    docker.image('amazon/aws-cli').inside('--entrypoint=""') {
                         sh 'aws ec2 delete-key-pair --key-name jenkins-key || true'
                     }
                 }
@@ -38,7 +37,6 @@ pipeline {
         }
         stage('Plan') {
             steps {
-                // Bind the Jenkins public key credential and pass it into Terraform.
                 withCredentials([string(credentialsId: 'jenkins-public-key', variable: 'PUBLIC_KEY')]) {
                     dir('terraform') {
                         sh 'terraform plan -var="jenkins_public_key=$PUBLIC_KEY" -out tfplan'
