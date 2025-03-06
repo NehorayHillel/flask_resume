@@ -27,7 +27,7 @@ pipeline {
         }
         stage('Plan') {
             steps {
-                // Bind the public key credential and pass it to Terraform plan
+                // Bind the public key credential and pass it to Terraform
                 withCredentials([string(credentialsId: 'jenkins-public-key', variable: 'PUBLIC_KEY')]) {
                     dir('terraform') {
                         sh 'terraform plan -var="jenkins_public_key=${PUBLIC_KEY}" -out tfplan'
@@ -39,7 +39,7 @@ pipeline {
         stage('Apply / Destroy') {
             steps {
                 script {
-                    // Bind the credential again if needed during apply/destroy
+                    // Bind the credential again during apply/destroy
                     withCredentials([string(credentialsId: 'jenkins-public-key', variable: 'PUBLIC_KEY')]) {
                         dir('terraform') {
                             if (params.action == 'apply') {
