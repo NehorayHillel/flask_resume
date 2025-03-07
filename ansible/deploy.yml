@@ -12,9 +12,10 @@
         mode: '0755'
 
     - name: Copy project files to remote host (/app)
-      synchronize:
-        src: ../your_project_directory/  # adjust relative path if needed
+      copy:
+        src: ../your_project_directory/   # Adjust this relative path to point to your project files
         dest: /app/
+        mode: '0755'
       delegate_to: localhost
 
     - name: Build Docker image for the project
@@ -23,7 +24,7 @@
       args:
         chdir: /app
 
-    - name: Create Docker network (if not exists)
+    - name: Create Docker network if not exists
       shell: |
         if ! docker network inspect resume_network >/dev/null 2>&1; then
           docker network create resume_network
@@ -39,6 +40,4 @@
           --env FLASK_ENV=development \
           --env FLASK_APP=app.py \
           --env SQLALCHEMY_DATABASE_URI="postgresql://neho:!Twork314Nh@db:5432/resume_db" \
-          -v "/app:/app" \
-          --network resume_network \
-          resume_web_image
+          -v "/app:/app"
