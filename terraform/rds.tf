@@ -16,27 +16,19 @@ resource "aws_db_subnet_group" "default" {
   }
 }
 
-# Create an RDS instance configured for free tier
+# RDS Instance configured for free tier (PostgreSQL) using minimal settings.
+# By not specifying a db_subnet_group_name, the default DB subnet group from the default VPC will be used.
 resource "aws_db_instance" "default" {
-  identifier              = "free-tier-rds"
-  engine                  = "mysql"         # Change to "postgres" if desired
-  engine_version          = "8.0"           # For MySQL; adjust if using another engine
-  instance_class          = "db.t2.micro"   # Free tier eligible
-  allocated_storage       = 20              # Minimum required storage
-  storage_type            = "gp2"
-
-  username                = var.db_username
-  password                = var.db_password
-
-  db_subnet_group_name    = aws_db_subnet_group.default.name
-  vpc_security_group_ids  = [aws_security_group.rds_sg.id]
-
-  publicly_accessible     = true
-  multi_az                = false
-
-  skip_final_snapshot     = true
-
-  tags = {
-    Name = "FreeTierRDSInstance"
-  }
+  allocated_storage      = 20               # Free-tier eligible storage size (GiB)
+  engine                 = "postgres"
+  engine_version         = "15"             
+  instance_class         = "db.t3.micro"    
+  identifier             = "my-free-tier-db"
+  db_name                = "resume_db"
+  username               = "neho"
+  password               = "!Twork314Nh"  
+  parameter_group_name   = "default.postgres15"
+  skip_final_snapshot    = true
+  publicly_accessible    = true            
+  vpc_security_group_ids = [aws_security_group.rds_sg.id]
 }
