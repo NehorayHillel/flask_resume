@@ -6,11 +6,12 @@ variable "jenkins_public_key" {
 variable "db_username" {
   description = "Database admin username"
   type        = string
-  default     = "admin"
+  default     = "neho"
 }
 
 variable "db_password" {
   description = "Database admin password"
   type        = string
+  default     = "Neho123"
   sensitive   = true
 }
