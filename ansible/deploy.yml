@@ -1,0 +1,44 @@
+---
+- name: Deploy Application on EC2 Instance
+  hosts: ec2
+  become: yes
+  tasks:
+    - name: Ensure project directory exists on remote host
+      file:
+        path: /app
+        state: directory
+        owner: ubuntu
+        group: ubuntu
+        mode: '0755'
+
+    - name: Copy project files to remote host (/app)
+      synchronize:
+        src: ../your_project_directory/  # adjust relative path if needed
+        dest: /app/
+      delegate_to: localhost
+
+    - name: Build Docker image for the project
+      shell: |
+        cd /app && docker build -t resume_web_image .
+      args:
+        chdir: /app
+
+    - name: Create Docker network (if not exists)
+      shell: |
+        if ! docker network inspect resume_network >/dev/null 2>&1; then
+          docker network create resume_network
+        fi
+      args:
+        executable: /bin/bash
+
+    - name: Run Docker container for the web app
+      shell: |
+        docker run -d \
+          --name resume_web \
+          -p 5000:5000 \
+          --env FLASK_ENV=development \
+          --env FLASK_APP=app.py \
+          --env SQLALCHEMY_DATABASE_URI="postgresql://neho:!Twork314Nh@db:5432/resume_db" \
+          -v "/app:/app" \
+          --network resume_network \
+          resume_web_image
