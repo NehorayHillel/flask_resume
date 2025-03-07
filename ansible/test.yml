@@ -1,0 +1,6 @@
+---
+- name: Test connectivity to EC2 instance
+  hosts: ec2
+  tasks:
+    - name: Ping the host
+      ping:
