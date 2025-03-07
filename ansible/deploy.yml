@@ -13,7 +13,7 @@
 
     - name: Copy project files to remote host (/app)
       copy:
-        src: ../your_project_directory/   # Adjust this relative path to point to your project files
+        src: ../web/
         dest: /app/
         mode: '0755'
       delegate_to: localhost
@@ -40,4 +40,6 @@
           --env FLASK_ENV=development \
           --env FLASK_APP=app.py \
           --env SQLALCHEMY_DATABASE_URI="postgresql://neho:!Twork314Nh@db:5432/resume_db" \
-          -v "/app:/app"
+          -v "/app:/app" \
+          --network resume_network \
+          resume_web_image
