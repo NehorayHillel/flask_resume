@@ -59,15 +59,48 @@
         dest: /opt/flask_resume/DB/
         remote_src: yes
 
+    - name: Check if init.sql exists
+      stat:
+        path: /opt/flask_resume/DB/init.sql
+      register: init_sql_file
+
+    - name: Display init.sql status
+      debug:
+        msg: "init.sql file exists: {{ init_sql_file.stat.exists }}"
+
+    - name: View content of init.sql file
+      command: cat /opt/flask_resume/DB/init.sql
+      register: init_sql_content
+      when: init_sql_file.stat.exists
+      
+    - name: Display content of init.sql
+      debug:
+        var: init_sql_content.stdout_lines
+      when: init_sql_file.stat.exists
+
     - name: Import SQL file to RDS database
       shell: PGPASSWORD="{{ rds_password }}" psql -h {{ rds_endpoint }} -U {{ rds_username }} -d {{ rds_database }} -p {{ rds_port }} --set=sslmode={{ rds_ssl_mode }} -f /opt/flask_resume/DB/init.sql
-      ignore_errors: yes
       register: psql_import
+      failed_when: psql_import.rc != 0 and 'already exists' not in psql_import.stderr
 
-    - name: Display PostgreSQL import result
+    - name: Display PostgreSQL import result (stdout)
       debug:
         var: psql_import.stdout_lines
       when: psql_import.stdout_lines is defined
+    
+    - name: Display PostgreSQL import errors (stderr)
+      debug:
+        var: psql_import.stderr_lines
+      when: psql_import.stderr_lines is defined
+
+    - name: Verify database tables exist
+      shell: PGPASSWORD="{{ rds_password }}" psql -h {{ rds_endpoint }} -U {{ rds_username }} -d {{ rds_database }} -p {{ rds_port }} --set=sslmode={{ rds_ssl_mode }} -c "\dt"
+      register: tables_check
+
+    - name: Display tables in database
+      debug:
+        var: tables_check.stdout_lines
+      when: tables_check.stdout_lines is defined
 
     - name: Create Docker network
       command: docker network create resume_network
