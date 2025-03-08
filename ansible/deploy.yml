@@ -1,45 +1,72 @@
 ---
-- name: Deploy Application on EC2 Instance
+- name: Deploy Flask Resume Application
   hosts: ec2
   become: yes
   tasks:
-    - name: Ensure project directory exists on remote host
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+      
+    - name: Install required packages
+      apt:
+        name:
+          - git
+          - docker.io
+          - python3-pip
+        state: present
+
+    - name: Install Docker Compose
+      pip:
+        name: docker-compose
+        state: present
+
+    - name: Start and enable Docker service
+      systemd:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name: Create project directory
       file:
-        path: /app
+        path: /opt/flask_resume
         state: directory
-        owner: ubuntu
-        group: ubuntu
         mode: '0755'
 
-    - name: Copy project files to remote host (/app)
+    - name: Clone the repository
+      git:
+        repo: https://github.com/NehorayHillel/flask_resume.git
+        dest: /tmp/flask_resume
+        
+    - name: Copy Web directory to project directory
       copy:
-        src: ../Web/
-        dest: /app/
-        mode: '0755'
-      delegate_to: localhost
-
-    - name: Build Docker image for the project
-      shell: |
-        cd /app && docker build -t resume_web_image -f Dockerfile-web .
-      args:
-        chdir: /app
-
-    - name: Create Docker network if not exists
-      shell: |
-        if ! docker network inspect resume_network >/dev/null 2>&1; then
-          docker network create resume_network
-        fi
-      args:
-        executable: /bin/bash
-
-    - name: Run Docker container for the web app
-      shell: |
-        docker run -d \
-          --name resume_web \
-          -p 5000:5000 \
-          --env FLASK_ENV=development \
-          --env FLASK_APP=app.py \
-          --env SQLALCHEMY_DATABASE_URI="postgresql://neho:!Twork314Nh@db:5432/resume_db" \
-          -v "/app:/app" \
-          --network resume_network \
-          resume_web_image
+        src: /tmp/flask_resume/Web/
+        dest: /opt/flask_resume/Web/
+        remote_src: yes
+        
+    - name: Create Docker network
+      docker_network:
+        name: resume_network
+        state: present
+      
+    - name: Build Docker image
+      docker_image:
+        name: resume_web_image
+        build:
+          path: /opt/flask_resume/Web
+          dockerfile: Dockerfile-web
+        source: build
+        state: present
+        
+    - name: Run Flask resume container
+      docker_container:
+        name: resume_web
+        image: resume_web_image
+        state: started
+        restart_policy: always
+        published_ports:
+          - "5000:5000"
+        env:
+          FLASK_ENV: development
+          FLASK_APP: app.py
+        networks:
+          - name: resume_network
