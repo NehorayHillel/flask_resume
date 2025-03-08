@@ -1,12 +1,24 @@
 ---
-- name: Copy Web folder to EC2 instance
+- name: Copy Web folder to EC2 instance using unarchive
   hosts: ec2
   become: yes
   tasks:
-    - name: Copy Web folder into /app
-      copy:
-        src: ../Web/
-        dest: /project/
-        mode: '0755'
-        recursive: yes
+    - name: Archive the Web folder on the control node
+      shell: tar czf web.tar.gz -C .. Web
       delegate_to: localhost
+      args:
+        chdir: "{{ playbook_dir }}"
+
+    - name: Ensure target directory /project exists on remote host
+      file:
+        path: /project
+        state: directory
+        owner: ubuntu
+        group: ubuntu
+        mode: '0755'
+
+    - name: Copy and extract the Web archive to /project on remote host
+      unarchive:
+        src: "{{ playbook_dir }}/web.tar.gz"
+        dest: /project/
+        remote_src: no
