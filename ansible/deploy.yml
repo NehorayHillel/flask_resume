@@ -2,6 +2,12 @@
 - name: Deploy Flask Resume Application
   hosts: ec2
   become: true
+  vars:
+    rds_endpoint: my-free-tier-db.cyfoy4g0kv3l.us-east-1.rds.amazonaws.com
+    rds_username: postgres
+    rds_password: postgres
+    rds_database: postgres
+    rds_port: 5432
   tasks:
     - name: Update apt cache
       apt:
@@ -12,15 +18,15 @@
         name:
           - git
           - docker.io
-          - mysql-client
+          - postgresql-client
           - python3-pip
         state: present
 
-    - name: Install Python MySQL library
+    - name: Install Python PostgreSQL library
       pip:
         name: 
-          - PyMySQL
-          - mysql-connector-python
+          - psycopg2-binary
+          - sqlalchemy
         state: present
 
     - name: Start and enable Docker service
@@ -52,6 +58,16 @@
         dest: /opt/flask_resume/DB/
         remote_src: yes
 
+    - name: Import SQL file to RDS database
+      shell: PGPASSWORD="{{ rds_password }}" psql -h {{ rds_endpoint }} -U {{ rds_username }} -d {{ rds_database }} -p {{ rds_port }} -f /opt/flask_resume/DB/init.sql
+      ignore_errors: yes
+      register: psql_import
+
+    - name: Display PostgreSQL import result
+      debug:
+        var: psql_import.stdout_lines
+      when: psql_import.stdout_lines is defined
+
     - name: Create Docker network
       command: docker network create resume_network
       ignore_errors: yes
@@ -66,13 +82,18 @@
       command: docker rm -f resume_web
       ignore_errors: yes
 
-    - name: Run Flask application container
+    - name: Run Flask application container with PostgreSQL connection
       command: >
         docker run -d
         --name resume_web
         -p 0.0.0.0:5000:5000
         --env FLASK_ENV=development
         --env FLASK_APP=app.py
+        --env DB_HOST={{ rds_endpoint }}
+        --env DB_PORT={{ rds_port }}
+        --env DB_USER={{ rds_username }}
+        --env DB_PASSWORD={{ rds_password }}
+        --env DB_NAME={{ rds_database }}
         --network resume_network
         resume_web_image
 
