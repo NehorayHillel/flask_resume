@@ -2,8 +2,21 @@ from flask import Flask, render_template, request, jsonify
 from db import db
 from models import Like, Comment  # These are now pointing to "likes_table" and "comment_table"
 from datetime import datetime
+import os
 
 app = Flask(__name__)
+
+# Get database connection details from environment variables
+db_host = os.environ.get('DB_HOST')
+db_port = os.environ.get('DB_PORT')
+db_user = os.environ.get('DB_USER')
+db_password = os.environ.get('DB_PASSWORD')
+db_name = os.environ.get('DB_NAME')
+db_ssl_mode = os.environ.get('DB_SSL_MODE')
+
+# Construct the database URI
+db_uri = f'postgresql://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}'
+app.config['SQLALCHEMY_DATABASE_URI'] = db_uri
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db.init_app(app)
@@ -13,6 +26,7 @@ with app.app_context():
     try:
         db.create_all()
         print("✅ Database tables created successfully.")
+        print(f"Connected to database at {db_host}:{db_port}")
     except Exception as e:
         print(f"⚠️ Error creating tables: {e}")
 
@@ -52,9 +66,18 @@ def debug():
     comments = Comment.query.order_by(Comment.timestamp.desc()).all()
     comments_data = [{"id": c.id, "text": c.text, "timestamp": c.timestamp.strftime("%Y-%m-%d %H:%M:%S")} for c in comments]
 
+    # Add connection info for debugging
+    connection_info = {
+        "db_host": db_host,
+        "db_port": db_port,
+        "db_name": db_name,
+        "db_user": db_user
+    }
+
     return jsonify({
         "like_count": likes_count,
-        "comments": comments_data
+        "comments": comments_data,
+        "connection_info": connection_info
     })
 
 if __name__ == "__main__":
