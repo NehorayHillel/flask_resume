@@ -6,7 +6,7 @@
     - name: Copy Web folder into /app
       copy:
         src: ../Web/
-        dest: /app/
+        dest: /project/
         mode: '0755'
         recursive: yes
       delegate_to: localhost
