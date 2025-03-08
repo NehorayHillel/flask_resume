@@ -79,7 +79,7 @@
       when: init_sql_file.stat.exists
 
     - name: Import SQL file to RDS database
-      shell: PGPASSWORD="{{ rds_password }}" psql -h {{ rds_endpoint }} -U {{ rds_username }} -d {{ rds_database }} -p {{ rds_port }} --set=sslmode={{ rds_ssl_mode }} -f /opt/flask_resume/DB/init.sql
+      shell: PGPASSWORD="{{rds_password}}" psql -h {{rds_endpoint}} -U {{rds_username}} -d {{rds_database}} -p {{rds_port}} --set=sslmode={{rds_ssl_mode}} -f /opt/flask_resume/DB/init.sql
       register: psql_import
       failed_when: psql_import.rc != 0 and 'already exists' not in psql_import.stderr
 
