@@ -1,30 +1,24 @@
 ---
 - name: Deploy Flask Resume Application
   hosts: ec2
-  become: yes
+  become: true
   tasks:
     - name: Update apt cache
       apt:
         update_cache: yes
-      
+
     - name: Install required packages
       apt:
         name:
           - git
           - docker.io
-          - python3-pip
-        state: present
-
-    - name: Install Docker Compose
-      pip:
-        name: docker-compose
         state: present
 
     - name: Start and enable Docker service
       systemd:
         name: docker
         state: started
-        enabled: yes
+        enabled: true
 
     - name: Create project directory
       file:
@@ -36,37 +30,33 @@
       git:
         repo: https://github.com/NehorayHillel/flask_resume.git
         dest: /tmp/flask_resume
-        
+
     - name: Copy Web directory to project directory
       copy:
         src: /tmp/flask_resume/Web/
         dest: /opt/flask_resume/Web/
         remote_src: yes
-        
+
     - name: Create Docker network
-      docker_network:
-        name: resume_network
-        state: present
-      
+      command: docker network create resume_network
+      ignore_errors: yes
+      register: network_result
+      changed_when: network_result.rc == 0
+      failed_when: network_result.rc != 0 and "already exists" not in network_result.stderr
+
     - name: Build Docker image
-      docker_image:
-        name: resume_web_image
-        build:
-          path: /opt/flask_resume/Web
-          dockerfile: Dockerfile-web
-        source: build
-        state: present
-        
-    - name: Run Flask resume container
-      docker_container:
-        name: resume_web
-        image: resume_web_image
-        state: started
-        restart_policy: always
-        published_ports:
-          - "5000:5000"
-        env:
-          FLASK_ENV: development
-          FLASK_APP: app.py
-        networks:
-          - name: resume_network
+      command: docker build -t resume_web_image -f /opt/flask_resume/Web/Dockerfile-web /opt/flask_resume/Web/
+      
+    - name: Remove existing container if it exists
+      command: docker rm -f resume_web
+      ignore_errors: yes
+
+    - name: Run Flask application container
+      command: >
+        docker run -d
+        --name resume_web
+        -p 5000:5000
+        --env FLASK_ENV=development
+        --env FLASK_APP=app.py
+        --network resume_network
+        resume_web_image
