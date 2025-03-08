@@ -1,5 +1,5 @@
 ---
-- name: Deploy Flask Resume Application
+- name: Deploy Flask Resume Application and Configure RDS
   hosts: ec2
   become: true
   tasks:
@@ -12,6 +12,15 @@
         name:
           - git
           - docker.io
+          - mysql-client
+          - python3-pip
+        state: present
+
+    - name: Install Python MySQL library
+      pip:
+        name: 
+          - PyMySQL
+          - mysql-connector-python
         state: present
 
     - name: Start and enable Docker service
@@ -37,12 +46,32 @@
         dest: /opt/flask_resume/Web/
         remote_src: yes
 
+    - name: Copy DB directory to project directory
+      copy:
+        src: /tmp/flask_resume/DB/
+        dest: /opt/flask_resume/DB/
+        remote_src: yes
+
     - name: Create Docker network
       command: docker network create resume_network
       ignore_errors: yes
       register: network_result
       changed_when: network_result.rc == 0
       failed_when: network_result.rc != 0 and "already exists" not in network_result.stderr
+
+    - name: Import SQL file to RDS database
+      shell: mysql -h {{ rds_endpoint }} -u {{ rds_username }} -p{{ rds_password }} < /opt/flask_resume/DB/init.sql
+      environment:
+        MYSQL_PWD: "{{ rds_password }}"
+      no_log: yes
+      register: mysql_import
+      failed_when: "'error' in mysql_import.stderr | lower"
+      ignore_errors: yes
+
+    - name: Display MySQL import result
+      debug:
+        var: mysql_import.stdout_lines
+      when: mysql_import.stdout_lines is defined
 
     - name: Build Docker image
       command: docker build -t resume_web_image -f /opt/flask_resume/Web/Dockerfile-web /opt/flask_resume/Web/
@@ -51,27 +80,16 @@
       command: docker rm -f resume_web
       ignore_errors: yes
 
-    - name: Run Flask application container
+    - name: Run Flask application container with RDS connection
       command: >
         docker run -d
         --name resume_web
         -p 0.0.0.0:5000:5000
         --env FLASK_ENV=development
         --env FLASK_APP=app.py
+        --env DB_HOST={{ rds_endpoint }}
+        --env DB_USER={{ rds_username }}
+        --env DB_PASSWORD={{ rds_password }}
+        --env DB_NAME={{ rds_database }}
         --network resume_network
         resume_web_image
-
-    - name: Wait for application to start
-      wait_for:
-        host: localhost
-        port: 5000
-        timeout: 30
-      ignore_errors: yes
-
-    - name: Check container logs
-      command: docker logs resume_web
-      register: container_logs
-      
-    - name: Display container logs
-      debug:
-        var: container_logs.stdout_lines
