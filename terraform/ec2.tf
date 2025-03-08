@@ -20,6 +20,6 @@ resource "aws_instance" "linux_docker" {
   EOF
 
   tags = {
-    Name = "LinuxDockerInstance1"
+    Name = "LinuxDockerInstance"
   }
 }
