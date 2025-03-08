@@ -24,7 +24,7 @@
         remote_src: no
 
     - name: Build Docker image for the project
-      shell: docker build -t resume_web_image -f Dockerfile-web .
+      shell: docker build -t resume_web_image -f Web/Dockerfile-web .
       args:
         chdir: /project
 
@@ -44,6 +44,6 @@
           --env FLASK_ENV=development \
           --env FLASK_APP=app.py \
           --env SQLALCHEMY_DATABASE_URI="postgresql://neho:!Twork314Nh@db:5432/resume_db" \
-          -v "/project:/app" \
+          -v "/project/Web:/app" \
           --network resume_network \
           resume_web_image
