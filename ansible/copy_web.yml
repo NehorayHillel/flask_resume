@@ -1,6 +1,12 @@
 ---
-- name: Test connectivity to EC2 instance
+- name: Copy Web folder to EC2 instance
   hosts: ec2
+  become: yes
   tasks:
-    - name: Ping the host
-      ping:
+    - name: Copy Web folder into /app
+      copy:
+        src: ../Web/
+        dest: /app/
+        mode: '0755'
+        recursive: yes
+      delegate_to: localhost
