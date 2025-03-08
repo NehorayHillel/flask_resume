@@ -4,7 +4,6 @@ from models import Like, Comment  # These are now pointing to "likes_table" and 
 from datetime import datetime
 
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://neho:!Twork314Nh@resume_db:5432/resume_db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db.init_app(app)
