@@ -1,5 +1,5 @@
 ---
-- name: Deploy Flask Resume Application and Configure RDS
+- name: Deploy Flask Resume Application
   hosts: ec2
   become: true
   tasks:
@@ -59,20 +59,6 @@
       changed_when: network_result.rc == 0
       failed_when: network_result.rc != 0 and "already exists" not in network_result.stderr
 
-    - name: Import SQL file to RDS database
-      shell: mysql -h {{ rds_endpoint }} -u {{ rds_username }} -p{{ rds_password }} < /opt/flask_resume/DB/init.sql
-      environment:
-        MYSQL_PWD: "{{ rds_password }}"
-      no_log: yes
-      register: mysql_import
-      failed_when: "'error' in mysql_import.stderr | lower"
-      ignore_errors: yes
-
-    - name: Display MySQL import result
-      debug:
-        var: mysql_import.stdout_lines
-      when: mysql_import.stdout_lines is defined
-
     - name: Build Docker image
       command: docker build -t resume_web_image -f /opt/flask_resume/Web/Dockerfile-web /opt/flask_resume/Web/
       
@@ -80,16 +66,27 @@
       command: docker rm -f resume_web
       ignore_errors: yes
 
-    - name: Run Flask application container with RDS connection
+    - name: Run Flask application container
       command: >
         docker run -d
         --name resume_web
         -p 0.0.0.0:5000:5000
         --env FLASK_ENV=development
         --env FLASK_APP=app.py
-        --env DB_HOST={{ rds_endpoint }}
-        --env DB_USER={{ rds_username }}
-        --env DB_PASSWORD={{ rds_password }}
-        --env DB_NAME={{ rds_database }}
         --network resume_network
         resume_web_image
+
+    - name: Wait for application to be ready
+      wait_for:
+        host: localhost
+        port: 5000
+        timeout: 30
+      ignore_errors: yes
+
+    - name: Show running containers
+      command: docker ps
+      register: docker_ps
+
+    - name: Display running containers
+      debug:
+        var: docker_ps.stdout_lines
