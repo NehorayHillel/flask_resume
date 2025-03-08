@@ -4,11 +4,16 @@ resource "aws_key_pair" "jenkins_key" {
 }
 
 resource "aws_instance" "linux_docker" {
-  ami                   = "ami-08c40ec9ead489470"
-  instance_type         = "t2.micro"
-  key_name              = aws_key_pair.jenkins_key.key_name
-
+  ami                    = "ami-08c40ec9ead489470"
+  instance_type          = "t2.micro"
+  key_name               = aws_key_pair.jenkins_key.key_name
   vpc_security_group_ids = [aws_security_group.instance_sg.id]
+
+  root_block_device {
+    volume_size = 10
+    volume_type = "gp3"
+    encrypted   = true
+  }
 
   user_data = <<-EOF
     #!/bin/bash
@@ -21,5 +26,10 @@ resource "aws_instance" "linux_docker" {
 
   tags = {
     Name = "LinuxDockerInstance"
+    Environment = "Development"
+    ManagedBy = "Terraform"
   }
+
+  # Enable detailed monitoring (CloudWatch)
+  monitoring = true
 }
