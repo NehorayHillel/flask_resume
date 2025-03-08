@@ -55,8 +55,23 @@
       command: >
         docker run -d
         --name resume_web
-        -p 5000:5000
+        -p 0.0.0.0:5000:5000
         --env FLASK_ENV=development
         --env FLASK_APP=app.py
         --network resume_network
         resume_web_image
+
+    - name: Wait for application to start
+      wait_for:
+        host: localhost
+        port: 5000
+        timeout: 30
+      ignore_errors: yes
+
+    - name: Check container logs
+      command: docker logs resume_web
+      register: container_logs
+      
+    - name: Display container logs
+      debug:
+        var: container_logs.stdout_lines
