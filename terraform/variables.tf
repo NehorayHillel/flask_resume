@@ -12,6 +12,6 @@ variable "db_username" {
 variable "db_password" {
   description = "Database admin password"
   type        = string
-  default     = "Neho123"
+  default     = "!Twork314Nh"
   sensitive   = true
 }
