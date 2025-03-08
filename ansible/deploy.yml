@@ -14,7 +14,7 @@
     - name: Copy project files to remote host (/app)
       copy:
         # Ensure the 'web' folder exists as a sibling to the 'ansible' folder.
-        src: ../web/
+        src: ../Web/
         dest: /app/
         mode: '0755'
       delegate_to: localhost
