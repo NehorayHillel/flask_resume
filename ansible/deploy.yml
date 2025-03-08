@@ -4,10 +4,11 @@
   become: true
   vars:
     rds_endpoint: my-free-tier-db.cyfoy4g0kv3l.us-east-1.rds.amazonaws.com
-    rds_username: postgres
-    rds_password: postgres
-    rds_database: postgres
+    rds_username: neho
+    rds_password: your_password_here  # Replace with the actual password
+    rds_database: resume_db
     rds_port: 5432
+    rds_ssl_mode: require
   tasks:
     - name: Update apt cache
       apt:
@@ -59,7 +60,7 @@
         remote_src: yes
 
     - name: Import SQL file to RDS database
-      shell: PGPASSWORD="{{ rds_password }}" psql -h {{ rds_endpoint }} -U {{ rds_username }} -d {{ rds_database }} -p {{ rds_port }} -f /opt/flask_resume/DB/init.sql
+      shell: PGPASSWORD="{{ rds_password }}" psql -h {{ rds_endpoint }} -U {{ rds_username }} -d {{ rds_database }} -p {{ rds_port }} --set=sslmode={{ rds_ssl_mode }} -f /opt/flask_resume/DB/init.sql
       ignore_errors: yes
       register: psql_import
 
@@ -94,6 +95,7 @@
         --env DB_USER={{ rds_username }}
         --env DB_PASSWORD={{ rds_password }}
         --env DB_NAME={{ rds_database }}
+        --env DB_SSL_MODE={{ rds_ssl_mode }}
         --network resume_network
         resume_web_image
 
@@ -111,3 +113,13 @@
     - name: Display running containers
       debug:
         var: docker_ps.stdout_lines
+
+    - name: Display container logs
+      command: docker logs resume_web
+      register: container_logs
+      ignore_errors: yes
+
+    - name: Show container logs
+      debug:
+        var: container_logs.stdout_lines
+      when: container_logs.stdout_lines is defined
