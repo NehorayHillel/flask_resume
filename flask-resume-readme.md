@@ -36,8 +36,6 @@ Before starting, ensure you have the following installed and configured:
 - **Docker**: For building and running container images
 - **Terraform**: For provisioning AWS infrastructure (EC2, RDS, and security groups)
 - **Ansible**: For configuring the application on the provisioned AWS environment
-- **AWS CLI**: For AWS interactions during the deployment process
-- **Python**: For running the Flask application locally
 
 ## Project Structure
 
