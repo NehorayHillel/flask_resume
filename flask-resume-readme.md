@@ -2,22 +2,37 @@
 
 ## Overview
 
-The Flask Resume Project is a containerized Flask application deployed on AWS. It demonstrates a modern DevOps workflow integrating Docker, Jenkins, Terraform, and Ansible to provision infrastructure and deploy the application. The project leverages AWS services (EC2 and RDS) and uses Jenkins for continuous integration and deployment (CI/CD), making it an excellent reference for automated deployments using infrastructure-as-code principles.
+The Flask Resume Project is a containerized Flask application deployed on AWS that showcases a modern DevOps workflow. This project demonstrates the integration of Docker, Jenkins, Terraform, and Ansible to provision infrastructure and deploy web applications in a repeatable, automated way. By leveraging AWS services (EC2 and RDS), the project provides a comprehensive example of infrastructure-as-code and CI/CD best practices.
 
-![DevOps Workflow](https://via.placeholder.com/800x400.png?text=DevOps+Workflow+Diagram)
+The pipeline handles the entire deployment process, from provisioning cloud resources to configuring servers and deploying the application. It includes application verification to ensure successful deployment and implements security best practices for credential management.
+
+## Key Features
+
+- **Containerized Application**: Flask application packaged with Docker for consistent deployment
+- **Infrastructure as Code**: AWS resources provisioned using Terraform
+- **Configuration Management**: Server configuration automated with Ansible
+- **CI/CD Pipeline**: Automated deployment with Jenkins
+- **Database Integration**: AWS RDS PostgreSQL database for persistent storage
+- **Application Verification**: Automated health checks to ensure successful deployment
+- **Secure Credential Management**: All sensitive information stored securely in Jenkins
+- **Robust Error Handling**: Retry mechanisms and detailed logging for troubleshooting
 
 ## Prerequisites
 
 Before starting, ensure you have the following installed and configured:
 
-- **Jenkins** with Terraform and Ansible plugins installed
+- **Jenkins** with the following plugins installed:
+  - Pipeline plugin
+  - Docker plugin
+  - Credentials Binding plugin
+  - SSH Agent plugin
 - **Jenkins Credentials**:
-  - AWS Secret ID
-  - AWS Secret Key
-  - EC2 SSH Private Key
-  - EC2 SSH Public Key
-  - Database Username
-  - Database Password
+  - `aws-access-key-id`: AWS access key ID
+  - `aws-secret-access-key`: AWS secret access key
+  - `jenkins-public-key`: EC2 SSH public key
+  - `jenkins-ssh-private-key`: SSH private key for EC2 access
+  - `db-username`: Database username
+  - `db-password`: Database password
 - **Docker**: For building and running container images
 - **Terraform**: For provisioning AWS infrastructure (EC2, RDS, and security groups)
 - **Ansible**: For configuring the application on the provisioned AWS environment
@@ -52,7 +67,9 @@ Before starting, ensure you have the following installed and configured:
 
 ### Jenkins Folder
 - `Jenkins-tera_ansi` (Pipeline File):
-  - A Jenkins pipeline that automates the deployment process with the following stages:
+  - A Jenkins pipeline that automates the deployment process
+  - Provides parameterized builds for flexible deployment options
+  - Securely handles AWS and database credentials
 
   #### Pipeline Stages:
   1. **Checkout**:
@@ -77,9 +94,10 @@ Before starting, ensure you have the following installed and configured:
      - When applying changes, this stage:
        - Retrieves outputs from Terraform (such as the EC2 public IP and RDS endpoint)
        - Sets them as environment variables
-       - Uses Jenkins credentials to securely fetch SSH keys
-       - Generates an Ansible inventory file
-       - Runs the Ansible playbook (ansible/deploy.yml) to deploy the application with the correct RDS configurations
+       - Uses Jenkins credentials to securely fetch SSH keys and RDS connection details
+       - Generates an Ansible inventory file dynamically from Terraform outputs
+       - Runs the Ansible playbook (ansible/deploy.yml) to deploy the application
+       - Passes database connection parameters securely from Jenkins credentials
 
   6. **Post Steps**:
      - Cleans up sensitive files (like SSH keys)
@@ -121,10 +139,28 @@ Before starting, ensure you have the following installed and configured:
    ```
 
 ### AWS Deployment with Jenkins
-1. Configure Jenkins with the required credentials and plugins
-2. Create a new Jenkins pipeline using the `Jenkins-tera_ansi` file
-3. Run the pipeline and monitor the deployment stages
-4. Once complete, access the application via the EC2 public IP address
+1. Configure Jenkins with the required credentials listed in the Prerequisites section
+2. Install the following software on your Jenkins server:
+   - Docker
+   - Terraform
+   - Ansible
+   - AWS CLI (if not using Docker container)
+3. Create a new Jenkins pipeline using the `Jenkins-tera_ansi` file
+4. Run the pipeline with the following parameters:
+   - `action`: Choose between 'apply' to deploy or 'destroy' to tear down
+   - `autoApprove`: Set to true to skip manual approval or false to review Terraform plan
+5. Monitor the deployment stages in the Jenkins console
+6. The pipeline will automatically verify the application is running correctly
+7. Once complete, access the application via the EC2 public IP address displayed in the Jenkins logs
+
+## Security Considerations
+
+- All sensitive information (AWS credentials, SSH keys, database credentials) is stored in Jenkins credentials, not hardcoded in scripts
+- SSH keys are properly managed and cleaned up after use
+- All database connections use SSL for secure data transmission
+- AWS resources are provisioned with appropriate security groups
+- Temporary credentials and files are deleted in post-build steps
+- Multiple layers of credential protection with Jenkins credential binding
 
 ## Architecture Diagram
 

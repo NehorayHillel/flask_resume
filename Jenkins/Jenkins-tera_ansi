@@ -181,6 +181,33 @@ ${env.EC2_PUBLIC_IP} ansible_user=ubuntu ansible_ssh_private_key_file=jenkins_ke
                 }
             }
         }
+        
+        stage('Display Application URLs') {
+            when {
+                expression { params.action == 'apply' }
+            }
+            steps {
+                script {
+                    echo """
+====================================================================================================
+APPLICATION DEPLOYED SUCCESSFULLY
+====================================================================================================
+Main Application URL: http://${env.EC2_PUBLIC_IP}:5000/
+Monitoring URL: http://${env.EC2_PUBLIC_IP}:5000/monitor
+====================================================================================================
+                    """
+                    
+                    // Create a file with the URLs for easy reference
+                    writeFile file: 'application_urls.txt', text: """
+Main Application URL: http://${env.EC2_PUBLIC_IP}:5000/
+Monitoring URL: http://${env.EC2_PUBLIC_IP}:5000/monitor
+                    """
+                    
+                    // Archive the URLs file as an artifact
+                    archiveArtifacts artifacts: 'application_urls.txt', onlyIfSuccessful: true
+                }
+            }
+        }
     }
     
     post {
