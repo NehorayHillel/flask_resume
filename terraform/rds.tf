@@ -21,8 +21,8 @@ resource "aws_db_instance" "default" {
   instance_class         = "db.t3.micro"
   identifier             = "my-free-tier-db"
   db_name                = "resume_db"
-  username               = "neho"           # Hardcoded for now
-  password               = "!Twork314Nh"    # Hardcoded for now
+  username               = var.db_username
+  password               = var.db_password
   parameter_group_name   = "default.postgres15"
   skip_final_snapshot    = true
   publicly_accessible    = true

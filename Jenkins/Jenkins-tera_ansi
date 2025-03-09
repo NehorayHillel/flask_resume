@@ -16,17 +16,12 @@ pipeline {
         stage('Checkout') {
             steps {
                 git branch: 'master', url: 'https://github.com/NehorayHillel/flask_resume.git'
-                
-                // Display the directory structure for debugging
-                sh 'find . -type f -name "*.yml" | sort'
-                sh 'find . -type f -name "*.tf" | sort'
             }
         }
         
         stage('Pre-cleanup') {
             steps {
                 script {
-                    // Run the AWS CLI inside a container with the entrypoint overridden.
                     docker.image('amazon/aws-cli').inside('--entrypoint=""') {
                         sh 'aws ec2 delete-key-pair --key-name jenkins-key || true'
                     }
@@ -44,11 +39,17 @@ pipeline {
         
         stage('Plan') {
             steps {
-                withCredentials([string(credentialsId: 'jenkins-public-key', variable: 'PUBLIC_KEY')]) {
+                withCredentials([
+                    string(credentialsId: 'jenkins-public-key', variable: 'PUBLIC_KEY'),
+                    string(credentialsId: 'db-username', variable: 'DB_USERNAME'),
+                    string(credentialsId: 'db-password', variable: 'DB_PASSWORD')
+                ]) {
                     dir('terraform') {
                         sh '''
                         terraform plan \
                           -var="jenkins_public_key=$PUBLIC_KEY" \
+                          -var="db_username=$DB_USERNAME" \
+                          -var="db_password=$DB_PASSWORD" \
                           -out tfplan
                         '''
                         sh 'terraform show -no-color tfplan > tfplan.txt'
@@ -60,7 +61,11 @@ pipeline {
         stage('Apply / Destroy') {
             steps {
                 script {
-                    withCredentials([string(credentialsId: 'jenkins-public-key', variable: 'PUBLIC_KEY')]) {
+                    withCredentials([
+                        string(credentialsId: 'jenkins-public-key', variable: 'PUBLIC_KEY'),
+                        string(credentialsId: 'db-username', variable: 'DB_USERNAME'),
+                        string(credentialsId: 'db-password', variable: 'DB_PASSWORD')
+                    ]) {
                         dir('terraform') {
                             if (params.action == 'apply') {
                                 if (!params.autoApprove) {
@@ -71,12 +76,16 @@ pipeline {
                                 sh '''
                                 terraform apply \
                                   -var="jenkins_public_key=$PUBLIC_KEY" \
+                                  -var="db_username=$DB_USERNAME" \
+                                  -var="db_password=$DB_PASSWORD" \
                                   -input=false tfplan
                                 '''
                             } else if (params.action == 'destroy') {
                                 sh '''
                                 terraform destroy \
                                   -var="jenkins_public_key=$PUBLIC_KEY" \
+                                  -var="db_username=$DB_USERNAME" \
+                                  -var="db_password=$DB_PASSWORD" \
                                   --auto-approve
                                 '''
                             } else {
@@ -94,42 +103,81 @@ pipeline {
             }
             steps {
                 script {
-                    // Capture Terraform outputs from the 'terraform' directory.
                     dir('terraform') {
                         def ec2_ip = sh(script: 'terraform output -raw ec2_public_ip', returnStdout: true).trim()
                         def rds_endpoint = sh(script: 'terraform output -raw rds_endpoint', returnStdout: true).trim()
                         env.EC2_PUBLIC_IP = ec2_ip
                         env.RDS_ENDPOINT = rds_endpoint
-                        
-                        // Print the outputs for debugging
-                        echo "EC2 IP: ${ec2_ip}"
-                        echo "RDS Endpoint: ${rds_endpoint}"
                     }
                     
-                    // Save the SSH key from Jenkins credentials to a file
                     withCredentials([sshUserPrivateKey(credentialsId: 'fa1b01b5-48cf-438b-b35f-b7cb70b3b53e', keyFileVariable: 'SSH_KEY_FILE')]) {
                         sh 'cp "$SSH_KEY_FILE" jenkins_key.pem'
                         sh 'chmod 600 jenkins_key.pem'
                     }
                     
-                    // Create the inventory template
                     writeFile file: 'inventory.ini', text: """[ec2]
 ${env.EC2_PUBLIC_IP} ansible_user=ubuntu ansible_ssh_private_key_file=jenkins_key.pem ansible_ssh_common_args='-o StrictHostKeyChecking=no'"""
                     
-                    // Show the inventory file for debugging
-                    sh 'cat inventory.ini'
+                    withCredentials([
+                        string(credentialsId: 'db-username', variable: 'DB_USERNAME'),
+                        string(credentialsId: 'db-password', variable: 'DB_PASSWORD')
+                    ]) {
+                        sh """
+                        ansible-playbook -i inventory.ini ansible/deploy.yml \
+                          -e "rds_endpoint=${env.RDS_ENDPOINT}" \
+                          -e "rds_username=\${DB_USERNAME}" \
+                          -e "rds_password='\${DB_PASSWORD}'" \
+                          -e "rds_database=resume_db" \
+                          -e "rds_port=5432" \
+                          -e "rds_ssl_mode=require" \
+                        """
+                    }
+                }
+            }
+        }
+        
+        stage('Verify Application') {
+            when {
+                expression { params.action == 'apply' }
+            }
+            steps {
+                script {
+                    sleep(time: 30, unit: 'SECONDS')
                     
-                    // Run the Ansible playbook
-                    sh """
-                    ansible-playbook -i inventory.ini ansible/deploy.yml \
-                      -e "rds_endpoint=${env.RDS_ENDPOINT}" \
-                      -e "rds_username=neho" \
-                      -e "rds_password='!Twork314Nh'" \
-                      -e "rds_database=resume_db" \
-                      -e "rds_port=5432" \
-                      -e "rds_ssl_mode=require" \
-                      -vvv
-                    """
+                    def maxRetries = 5
+                    def retryCount = 0
+                    def appStatus = false
+                    
+                    while (retryCount < maxRetries && !appStatus) {
+                        try {
+                            def response = sh(script: "curl -s -o /dev/null -w '%{http_code}' http://${env.EC2_PUBLIC_IP}:5000", returnStdout: true).trim()
+                            
+                            if (response == '200') {
+                                appStatus = true
+                                echo "Application verification successful"
+                            } else {
+                                retryCount++
+                                if (retryCount < maxRetries) {
+                                    sleep(time: 15, unit: 'SECONDS')
+                                }
+                            }
+                        } catch (Exception e) {
+                            retryCount++
+                            if (retryCount < maxRetries) {
+                                sleep(time: 15, unit: 'SECONDS')
+                            }
+                        }
+                    }
+                    
+                    if (!appStatus) {
+                        withCredentials([sshUserPrivateKey(credentialsId: 'fa1b01b5-48cf-438b-b35f-b7cb70b3b53e', keyFileVariable: 'SSH_KEY_FILE')]) {
+                            sh """
+                            ssh -i jenkins_key.pem -o StrictHostKeyChecking=no ubuntu@${env.EC2_PUBLIC_IP} 'docker logs resume_web'
+                            """
+                        }
+                        
+                        error "Application verification failed"
+                    }
                 }
             }
         }
@@ -137,14 +185,16 @@ ${env.EC2_PUBLIC_IP} ansible_user=ubuntu ansible_ssh_private_key_file=jenkins_ke
     
     post {
         always {
-            // Clean up sensitive files
             sh 'rm -f jenkins_key.pem || true'
+            sh 'rm -f inventory.ini || true'
+            sh 'find . -name "*.vault" -type f -delete || true'
+            sh 'rm -f tfplan.txt || true'
         }
         success {
             echo "Deployment completed successfully"
         }
         failure {
-            echo "Deployment failed. Check the logs for details."
+            echo "Deployment failed"
         }
     }
 }

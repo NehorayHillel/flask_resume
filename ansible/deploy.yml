@@ -77,7 +77,8 @@
       debug:
         msg: "init.sql file exists: {{ init_sql_file.stat.exists }}"
 
-    - name: Create .pgpass file for secure connection
+    # Create a temporary .pgpass file for this connection only
+    - name: Create .pgpass file for secure connection (temporary)
       copy:
         dest: /home/ubuntu/.pgpass
         content: "*:*:{{ rds_database }}:{{ rds_username }}:{{ rds_password }}"
@@ -102,24 +103,41 @@
         PGCONNECT_TIMEOUT: "10"  # Add timeout to prevent hanging
       no_log: true  # Prevent password leakage
 
-    - name: Remove .pgpass file
+    - name: Remove .pgpass file immediately after use
       file:
         path: /home/ubuntu/.pgpass
         state: absent
       no_log: true
 
-    - name: Verify database tables exist
+    - name: Verify database tables exist (using temporary credentials)
       become_user: ubuntu
-      shell: >
-        PGPASSWORD="{{ rds_password }}" psql 
-        -h {{ rds_endpoint | regex_replace(':.*$', '') }} 
-        -U {{ rds_username }} 
-        -d {{ rds_database }} 
-        -p {{ rds_port }} 
-        --set=sslmode={{ rds_ssl_mode }} 
-        -c "\dt"
-      register: tables_check
-      no_log: true
+      block:
+        - name: Create temporary .pgpass for verification
+          copy:
+            dest: /home/ubuntu/.pgpass.verify
+            content: "*:*:{{ rds_database }}:{{ rds_username }}:{{ rds_password }}"
+            mode: '0600'
+            owner: ubuntu
+            group: ubuntu
+          no_log: true
+
+        - name: Check tables
+          shell: >
+            PGPASSFILE=/home/ubuntu/.pgpass.verify psql 
+            -h {{ rds_endpoint | regex_replace(':.*$', '') }} 
+            -U {{ rds_username }} 
+            -d {{ rds_database }} 
+            -p {{ rds_port }} 
+            --set=sslmode={{ rds_ssl_mode }} 
+            -c "\dt"
+          register: tables_check
+          no_log: true
+
+        - name: Remove temporary .pgpass.verify
+          file:
+            path: /home/ubuntu/.pgpass.verify
+            state: absent
+          no_log: true
 
     - name: Display tables in database
       debug:
@@ -140,33 +158,50 @@
       command: docker rm -f resume_web
       ignore_errors: yes
 
-    - name: Create environment file for Docker
+    # Create a Docker Compose file instead of using environment variables directly
+    - name: Create Docker Compose file with environment variables
       copy:
-        dest: "{{ app_dir }}/.env"
+        dest: "{{ app_dir }}/docker-compose.yml"
         content: |
-          FLASK_ENV=development
-          FLASK_APP=app.py
-          DB_HOST={{ rds_endpoint | regex_replace(':.*$', '') }}
-          DB_PORT={{ rds_port }}
-          DB_USER={{ rds_username }}
-          DB_PASSWORD={{ rds_password }}
-          DB_NAME={{ rds_database }}
-          DB_SSL_MODE={{ rds_ssl_mode }}
+          version: '3'
+          services:
+            resume_web:
+              image: resume_web_image
+              container_name: resume_web
+              ports:
+                - "0.0.0.0:5000:5000"
+              environment:
+                - FLASK_ENV=development
+                - FLASK_APP=app.py
+                - DB_HOST={{ rds_endpoint | regex_replace(':.*$', '') }}
+                - DB_PORT={{ rds_port }}
+                - DB_USER={{ rds_username }}
+                - DB_PASSWORD={{ rds_password }}
+                - DB_NAME={{ rds_database }}
+                - DB_SSL_MODE={{ rds_ssl_mode }}
+              networks:
+                - resume_network
+              restart: unless-stopped
+          
+          networks:
+            resume_network:
+              external: true
         mode: '0600'
         owner: ubuntu
         group: ubuntu
       no_log: true  # Hide sensitive content in logs
 
-    - name: Run Flask application container with PostgreSQL connection
-      command: >
-        docker run -d
-        --name resume_web
-        -p 0.0.0.0:5000:5000
-        --env-file {{ app_dir }}/.env
-        --network resume_network
-        --restart=unless-stopped
-        resume_web_image
-      register: docker_run
+    - name: Install Docker Compose
+      apt:
+        name: docker-compose
+        state: present
+
+    - name: Run application using Docker Compose
+      become_user: ubuntu
+      command: docker-compose -f {{ app_dir }}/docker-compose.yml up -d
+      args:
+        chdir: "{{ app_dir }}"
+      register: docker_compose_result
 
     - name: Wait for application to be ready
       wait_for:
