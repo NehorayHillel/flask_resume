@@ -1,0 +1,28 @@
+## Build the custom image:
+docker build -t custom-jenkins -f Dockerfile-jenkins
+
+### Docker Run Command for Bash
+
+docker run -d --name jenkins \
+  -p 8080:8080 -p 50000:50000 \
+  -v jenkins_home:/var/jenkins_home \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  --privileged \
+  --user root \
+  --restart always \
+  custom-jenkins
+
+
+
+  ### Docker Run Command for PowerShell
+
+
+docker run -d --name jenkins `
+  -p 8080:8080 -p 50000:50000 `
+  -v jenkins_home:/var/jenkins_home `
+  -v /var/run/docker.sock:/var/run/docker.sock `
+  --privileged `
+  --user root `
+  --restart always `
+  custom-jenkins
+
