@@ -7,3 +7,14 @@ ssh -i  /jenkins_deploy_key ubuntu@{ ec2 pub ip }
 psql -h {RDS endpoint} -p 5432 -U user -d resume_db
 
 \dt
+
+
+
+psql \
+  --host={rds endpoint} \
+  --port=5432 \
+  --username=neho \
+  --dbname=resume_db \
+  --set=sslmode=require
+
+\l
