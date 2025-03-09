@@ -110,7 +110,7 @@ pipeline {
                         env.RDS_ENDPOINT = rds_endpoint
                     }
                     
-                    withCredentials([sshUserPrivateKey(credentialsId: 'fa1b01b5-48cf-438b-b35f-b7cb70b3b53e', keyFileVariable: 'SSH_KEY_FILE')]) {
+                    withCredentials([sshUserPrivateKey(credentialsId: 'jenkins-ssh-private-key', keyFileVariable: 'SSH_KEY_FILE')]) {
                         sh 'cp "$SSH_KEY_FILE" jenkins_key.pem'
                         sh 'chmod 600 jenkins_key.pem'
                     }
@@ -170,7 +170,7 @@ ${env.EC2_PUBLIC_IP} ansible_user=ubuntu ansible_ssh_private_key_file=jenkins_ke
                     }
                     
                     if (!appStatus) {
-                        withCredentials([sshUserPrivateKey(credentialsId: 'fa1b01b5-48cf-438b-b35f-b7cb70b3b53e', keyFileVariable: 'SSH_KEY_FILE')]) {
+                        withCredentials([sshUserPrivateKey(credentialsId: 'jenkins-ssh-private-key', keyFileVariable: 'SSH_KEY_FILE')]) {
                             sh """
                             ssh -i jenkins_key.pem -o StrictHostKeyChecking=no ubuntu@${env.EC2_PUBLIC_IP} 'docker logs resume_web'
                             """
