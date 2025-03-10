@@ -132,7 +132,8 @@ Before starting, ensure you have the following installed and configured:
 
 3. Run 
    ```
-  docker compose up --build
+    docker compose up --build
+    
    ``` 
 
 3. Go to the application:
