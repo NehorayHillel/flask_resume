@@ -15,7 +15,6 @@ The pipeline handles the entire deployment process, from provisioning cloud reso
 - **Database Integration**: AWS RDS PostgreSQL database for persistent storage
 - **Application Verification**: Automated health checks to ensure successful deployment
 - **Secure Credential Management**: All sensitive information stored securely in Jenkins
-- **Robust Error Handling**: Retry mechanisms and detailed logging for troubleshooting
 
 ## Prerequisites
 
@@ -33,6 +32,7 @@ Before starting, ensure you have the following installed and configured:
   - `jenkins-ssh-private-key`: SSH private key for EC2 access
   - `db-username`: Database username
   - `db-password`: Database password
+**Jenkins Installtion**
 - **Docker**: For building and running container images
 - **Terraform**: For provisioning AWS infrastructure (EC2, RDS, and security groups)
 - **Ansible**: For configuring the application on the provisioned AWS environment
@@ -128,12 +128,17 @@ Before starting, ensure you have the following installed and configured:
    cd flask_resume
    ```
 
-2. Set up a local database using the `init.sql` script in the DB folder
+2. Make sure docker and docker compose installed in your system
 
-3. Run the Flask application:
+3. Run 
    ```
-   cd web
-   python app.py
+  docker compose up --build
+   ``` 
+
+3. Go to the application:
+   ```
+   localhost:5000
+
    ```
 
 ### AWS Deployment with Jenkins
@@ -186,12 +191,9 @@ Before starting, ensure you have the following installed and configured:
 4. Push to the branch: `git push origin feature/amazing-feature`
 5. Open a Pull Request
 
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
 
 ## Contact
 
-Nehoray Hillel - [your-email@example.com](mailto:your-email@example.com)
+Nehoray Hillel - nhoray@gmail.com
 
 Project Link: [https://github.com/NehorayHillel/flask_resume](https://github.com/NehorayHillel/flask_resume)
